@@ -68,12 +68,30 @@ exports.createOrder = async (req, res, next) => {
         throw new AppError('Shipping address is required', 400);
     }
 
+    let finalTotal = cartTotal;
+
+    // Fast-fail coupon validation and atomically increment usage if coupon is active on cart
+    if (req.user && cart && cart.coupon && cart.totalPriceAfterDiscount !== undefined) {
+        finalTotal = cart.totalPriceAfterDiscount;
+        const Coupon = require('../coupons/coupon.model');
+        
+        const updatedCoupon = await Coupon.findOneAndUpdate(
+            { _id: cart.coupon, $expr: { $lt: ["$usageCount", "$usageLimit"] }, expireAt: { $gt: new Date() } },
+            { $inc: { usageCount: 1 } },
+            { session, new: true }
+        );
+
+        if (!updatedCoupon) {
+             throw new AppError('The applied coupon sold out or expired right before your checkout attempt. Please review your cart.', 400);
+        }
+    }
+
     // 2. Create the order
     const orderData = {
         user: req.user ? req.user._id : null,
         shippingAddress,
         items: cartItems,
-        total: cartTotal,
+        total: finalTotal,
         paymentMethod: paymentMethod || 'cash'
     };
 
@@ -186,7 +204,8 @@ exports.updateOrderStatus = async (req, res, next) => {
   try {
     const { status } = req.body;
     
-    if(!['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'].includes(status)){
+    const validStatuses = ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'];
+    if(!validStatuses.includes(status)){
          throw new AppError('Invalid status value', 400);
     }
 
@@ -196,19 +215,37 @@ exports.updateOrderStatus = async (req, res, next) => {
       throw new AppError('No order found with that ID', 404);
     }
 
+    if (order.status === status) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(200).json({ status: 'success', data: { order } });
+    }
+
+    if (order.status === 'cancelled') {
+        throw new AppError('A cancelled order cannot be reopened or have its status changed', 400);
+    }
+
     // Handle cancel & restock
-    if (status === 'cancelled' && order.status !== 'cancelled') {
+    if (status === 'cancelled') {
         if (order.status !== 'pending' && order.status !== 'confirmed') {
             throw new AppError('Order cannot be cancelled from its current status', 400);
         }
 
-        // Restock items
+        // Restock items using updateOne to safely bypass the pre('find') soft-delete hook 
+        // in case the product was soft-deleted while in an active order
         for (const item of order.items) {
-           await Product.findByIdAndUpdate(
-               item.product,
+           await Product.updateOne(
+               { _id: item.product },
                { $inc: { quantity: item.quantity, sold: -item.quantity } },
                { session }
            );
+        }
+    } else {
+        // Enforce forward-only flow
+        const currentIndex = validStatuses.indexOf(order.status);
+        const newIndex = validStatuses.indexOf(status);
+        if (newIndex <= currentIndex) {
+            throw new AppError(`Cannot move order status backwards from ${order.status} to ${status}`, 400);
         }
     }
 

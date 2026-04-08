@@ -1,12 +1,14 @@
 const express = require('express');
 const cartController = require('./cart.controller');
 const authMiddleware = require('../auth/auth.middleware');
-const { validate, addItemSchema, updateQuantitySchema } = require('./cart.validator');
+const { validate, addItemSchema, updateQuantitySchema, applyCouponSchema } = require('./cart.validator');
 
 const router = express.Router();
 
 // ALL cart operations require logged-in user
 router.use(authMiddleware.protect);
+
+router.patch('/apply-coupon', validate(applyCouponSchema), cartController.applyCouponToCart);
 
 router
   .route('/')

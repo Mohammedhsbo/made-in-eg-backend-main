@@ -32,6 +32,10 @@ if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 
+// Swagger Documentation
+const swaggerUi = require('swagger-ui-express');
+const swaggerDocument = require('./docs/swaggerDef');
+
 // Route files
 const authRoutes = require('./modules/auth/auth.routes');
 const categoryRoutes = require('./modules/categories/category.routes');
@@ -39,6 +43,10 @@ const productRoutes = require('./modules/products/product.routes');
 const cartRoutes = require('./modules/cart/cart.routes');
 const orderRoutes = require('./modules/orders/order.routes');
 const reviewRoutes = require('./modules/reviews/review.routes');
+const couponRoutes = require('./modules/coupons/coupon.routes');
+
+// Mount Swagger
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // Basic Route for testing
 app.get('/api/health', (req, res) => {
@@ -55,6 +63,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/reviews', reviewRoutes);
+app.use('/api/coupons', couponRoutes);
 
 // Handle Unhandled Routes
 app.all('*', notFoundHandler);

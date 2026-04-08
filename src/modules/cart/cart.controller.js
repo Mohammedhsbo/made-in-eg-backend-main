@@ -1,5 +1,6 @@
 const Cart = require('./cart.model');
 const Product = require('../products/product.model');
+const Coupon = require('../coupons/coupon.model');
 const AppError = require('./../../utils/AppError');
 
 // Get current user's cart
@@ -131,6 +132,12 @@ exports.updateItemQuantity = async (req, res, next) => {
       cart.items.splice(itemIndex, 1);
     } else {
       const product = cart.items[itemIndex].product;
+      if (!product || product.isDeleted) {
+          cart.items.splice(itemIndex, 1);
+          await cart.save();
+          return next(new AppError('Product is no longer available and has been removed from your cart.', 400));
+      }
+
       let newQty = quantity;
       if (newQty > product.quantity) newQty = product.quantity;
 
@@ -203,6 +210,72 @@ exports.clearCart = async (req, res, next) => {
         cart,
       },
     });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Apply coupon to cart
+exports.applyCouponToCart = async (req, res, next) => {
+  try {
+    const { code } = req.body;
+    
+    // 1. Get coupon
+    const coupon = await Coupon.findOne({ code: code.toUpperCase() });
+    
+    if (!coupon) {
+      return next(new AppError('Coupon is invalid or expired', 400));
+    }
+    
+    // Check expiration and usage
+    if (new Date() > new Date(coupon.expireAt)) {
+      return next(new AppError('Coupon has expired', 400));
+    }
+    
+    if (coupon.usageCount >= coupon.usageLimit) {
+      return next(new AppError('Coupon usage limit has been reached', 400));
+    }
+
+    // 2. Get Cart
+    const cart = await Cart.findOne({ user: req.user._id });
+    if (!cart || cart.items.length === 0) {
+      return next(new AppError('Your cart is empty', 400));
+    }
+    
+    let cartTotal = cart.items.reduce((total, item) => total + item.quantity * item.price, 0);
+
+    // 3. Check min purchase amount
+    if (cartTotal < coupon.minCartPrice) {
+       return next(new AppError(`You must spend at least $${coupon.minCartPrice} to use this coupon`, 400));
+    }
+    
+    // 4. Calculate discount
+    let discountAmount = 0;
+    if (coupon.discountType === 'fixed') {
+        discountAmount = coupon.discountValue;
+    } else if (coupon.discountType === 'percentage') {
+        discountAmount = cartTotal * (coupon.discountValue / 100);
+        if (coupon.maxDiscountAmount && discountAmount > coupon.maxDiscountAmount) {
+            discountAmount = coupon.maxDiscountAmount;
+        }
+    }
+    
+    let finalPrice = cartTotal - discountAmount;
+    if (finalPrice < 0) finalPrice = 0;
+    
+    // 5. Update cart
+    cart.totalPriceAfterDiscount = finalPrice;
+    cart.coupon = coupon._id;
+    await cart.save();
+    
+    res.status(200).json({
+      status: 'success',
+      message: 'Coupon applied successfully',
+      data: {
+        cart
+      }
+    });
+
   } catch (err) {
     next(err);
   }

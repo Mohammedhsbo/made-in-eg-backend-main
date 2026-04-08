@@ -14,8 +14,15 @@ const updateQuantitySchema = z.object({
   }),
 });
 
+const applyCouponSchema = z.object({
+  body: z.object({
+    code: z.string().min(1, 'Coupon code must be provided').toUpperCase()
+  })
+});
+
 module.exports = {
   validate,
   addItemSchema,
-  updateQuantitySchema
+  updateQuantitySchema,
+  applyCouponSchema
 };

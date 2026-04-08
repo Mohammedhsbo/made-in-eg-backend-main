@@ -33,6 +33,13 @@ const cartSchema = new mongoose.Schema(
       required: true,
       default: 0,
     },
+    totalPriceAfterDiscount: {
+      type: Number,
+    },
+    coupon: {
+      type: mongoose.Schema.ObjectId,
+      ref: 'Coupon'
+    }
   },
   {
     timestamps: true,
@@ -45,6 +52,13 @@ cartSchema.pre('save', function (next) {
     (total, item) => total + item.quantity * item.price,
     0
   );
+
+  // If cart changes, force user to re-apply coupon to respect minCartPrice logic
+  if (this.isModified('items')) {
+      this.totalPriceAfterDiscount = undefined;
+      this.coupon = undefined;
+  }
+
   next();
 });
 

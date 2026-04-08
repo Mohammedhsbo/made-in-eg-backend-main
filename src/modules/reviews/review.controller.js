@@ -51,7 +51,8 @@ exports.getProductReviews = async (req, res, next) => {
 
     // Basic pagination
     const page = req.query.page * 1 || 1;
-    const limit = req.query.limit * 1 || 10;
+    let limit = Math.max(1, req.query.limit * 1 || 10);
+    limit = Math.min(limit, 100); // Clamp to 100 items max
     const skip = (page - 1) * limit;
     
     query.skip(skip).limit(limit);

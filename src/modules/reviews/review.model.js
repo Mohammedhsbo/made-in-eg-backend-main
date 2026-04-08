@@ -70,8 +70,12 @@ reviewSchema.statics.calcAverageRatings = async function (productId) {
 };
 
 // Call calcAverageRatings after saving a review
-reviewSchema.post('save', function () {
-  this.constructor.calcAverageRatings(this.product);
+reviewSchema.post('save', async function () {
+  try {
+    await this.constructor.calcAverageRatings(this.product);
+  } catch (err) {
+    console.error('Error calculating average ratings (save):', err);
+  }
 });
 
 // Call calcAverageRatings when review is updated or deleted
@@ -84,7 +88,11 @@ reviewSchema.pre(/^findOneAnd/, async function (next) {
 reviewSchema.post(/^findOneAnd/, async function () {
   // await this.findOne(); does NOT work here, query has already executed
   if (this.r) {
-    await this.r.constructor.calcAverageRatings(this.r.product);
+    try {
+      await this.r.constructor.calcAverageRatings(this.r.product);
+    } catch (err) {
+      console.error('Error calculating average ratings (update/delete):', err);
+    }
   }
 });
 
