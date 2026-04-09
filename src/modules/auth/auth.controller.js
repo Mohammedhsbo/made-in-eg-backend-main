@@ -16,6 +16,7 @@ const sendTokenResponse = (user, tokens, statusCode, res) => {
   res.status(statusCode).json({
     status: 'success',
     token: tokens.accessToken, // We send access token in JSON body
+    refreshToken: tokens.refreshToken, // Include refresh token in response for testing
     data: {
       user,
     },

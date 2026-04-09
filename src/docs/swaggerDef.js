@@ -69,7 +69,13 @@ const swaggerJson = {
         responses: {
           201: {
             description: 'User created successfully',
-            content: { 'application/json': { schema: { properties: { status: { type: 'string', example: 'success' }, token: { type: 'string' }, data: { properties: { user: { $ref: '#/components/schemas/User' } } } } } } },
+            content: { 'application/json': { schema: { properties: { status: { type: 'string', example: 'success' }, token: { type: 'string' }, refreshToken: { type: 'string' }, data: { properties: { user: { $ref: '#/components/schemas/User' } } } } } } },
+            headers: {
+              'Set-Cookie': {
+                description: 'Sets the jwt_refresh cookie with the refresh token',
+                schema: { type: 'string' },
+              },
+            },
           },
           400: { description: 'Validation Error' },
         },
@@ -96,7 +102,33 @@ const swaggerJson = {
           },
         },
         responses: {
-          200: { description: 'Logged in successfully' },
+          200: {
+            description: 'Logged in successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    status: { type: 'string', example: 'success' },
+                    token: { type: 'string', description: 'Access token' },
+                    refreshToken: { type: 'string', description: 'Refresh token' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        user: { $ref: '#/components/schemas/User' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            headers: {
+              'Set-Cookie': {
+                description: 'Sets the jwt_refresh cookie with the refresh token',
+                schema: { type: 'string' },
+              },
+            },
+          },
           401: { description: 'Incorrect email or password' },
         },
       },
@@ -110,13 +142,46 @@ const swaggerJson = {
           {
             name: 'X-Refresh-Token',
             in: 'header',
-            required: true,
+            required: false,
             schema: { type: 'string' },
-            description: 'Refresh token for issuing a new access token',
+            description: 'Refresh token for issuing a new access token (provide either this header or the jwt_refresh cookie)',
+          },
+          {
+            name: 'jwt_refresh',
+            in: 'cookie',
+            required: false,
+            schema: { type: 'string' },
+            description: 'Refresh token cookie (alternative to header)',
           },
         ],
         responses: {
-          200: { description: 'Token refreshed successfully' },
+          200: {
+            description: 'Token refreshed successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    status: { type: 'string', example: 'success' },
+                    token: { type: 'string', description: 'New access token' },
+                    refreshToken: { type: 'string', description: 'New refresh token' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        user: { $ref: '#/components/schemas/User' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            headers: {
+              'Set-Cookie': {
+                description: 'Sets the jwt_refresh cookie with the new refresh token',
+                schema: { type: 'string' },
+              },
+            },
+          },
           401: { description: 'Not logged in / Invalid refresh token' },
         },
       },
