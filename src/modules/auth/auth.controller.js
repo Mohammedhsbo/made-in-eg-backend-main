@@ -43,7 +43,7 @@ exports.login = async (req, res, next) => {
 
 exports.refresh = async (req, res, next) => {
   try {
-    const refreshToken = req.cookies.jwt_refresh;
+    const refreshToken = req.headers['x-refresh-token'] || req.cookies.jwt_refresh;
     const { user, tokens } = await authService.refreshTokens(refreshToken);
     sendTokenResponse(user, tokens, 200, res);
   } catch (err) {

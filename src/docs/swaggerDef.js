@@ -102,10 +102,19 @@ const swaggerJson = {
       },
     },
     '/api/auth/refresh': {
-      get: {
+      post: {
         summary: 'Refresh JWT token',
         tags: ['Authentication'],
         security: [],
+        parameters: [
+          {
+            name: 'X-Refresh-Token',
+            in: 'header',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Refresh token for issuing a new access token',
+          },
+        ],
         responses: {
           200: { description: 'Token refreshed successfully' },
           401: { description: 'Not logged in / Invalid refresh token' },
@@ -126,6 +135,15 @@ const swaggerJson = {
         summary: 'Bootstrap first admin user',
         tags: ['Authentication'],
         security: [],
+        parameters: [
+          {
+            name: 'X-Admin-Key',
+            in: 'header',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Secret admin bootstrap key',
+          },
+        ],
         requestBody: {
           required: true,
           content: { 'application/json': { schema: { type: 'object', required: ['name', 'email', 'password', 'passwordConfirm'], properties: { name: { type: 'string' }, email: { type: 'string' }, password: { type: 'string' }, passwordConfirm: { type: 'string' }, adminSecret: { type: 'string' } } } } },
