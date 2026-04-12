@@ -13,9 +13,10 @@ exports.createOrder = async (req, res, next) => {
   try {
     let cartItems = [];
     let cartTotal = 0;
+    let cart;
 
     if (req.user) {
-        const cart = await Cart.findOne({ user: req.user._id }).populate({
+        cart = await Cart.findOne({ user: req.user._id }).populate({
             path: 'items.product',
             select: 'title_ar title_en basePrice priceAfterDiscount quantity isDeleted',
         }).session(session);
