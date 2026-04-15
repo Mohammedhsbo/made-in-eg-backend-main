@@ -18,6 +18,23 @@ router.post(
   authController.login
 );
 
+router.post(
+  '/forgot-password',
+  authValidator.validate(authValidator.forgotPasswordSchema),
+  authController.forgotPassword
+);
+
+router.post(
+  '/reset-password',
+  authValidator.validate(authValidator.resetPasswordSchema),
+  authController.resetPassword
+);
+
+router.post(
+  '/verify-otp',
+  authController.verifyOtp
+);
+
 router.post('/refresh', authController.refresh);
 
 // Hidden route to bootstrap first admin (Requires Secret Header)
@@ -28,5 +45,6 @@ router.use(protect);
 
 router.post('/logout', authController.logout);
 router.get('/me', authController.getMe);
+router.put('/update-password', authValidator.validate(authValidator.updatePasswordSchema), authController.updatePassword);
 
 module.exports = router;

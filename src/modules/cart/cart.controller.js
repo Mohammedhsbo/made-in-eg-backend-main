@@ -6,6 +6,7 @@ const AppError = require('./../../utils/AppError');
 // Get current user's cart
 exports.getCart = async (req, res, next) => {
   try {
+
     let cart = await Cart.findOne({ user: req.user._id }).populate({
       path: 'items.product',
       select: 'title_ar title_en imageCover basePrice priceAfterDiscount quantity isDeleted',

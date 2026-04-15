@@ -1,4 +1,6 @@
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
 const User = require('./../users/user.model');
 const AppError = require('./../../utils/AppError');
 
@@ -102,11 +104,89 @@ const createFirstAdmin = async (userData,  secretKey) => {
   return newAdmin;
 };
 
+// 7) Forgot Password
+const forgotPassword = async (email) => {
+  const user = await User.findOne({ email });
+  
+  if (!user) {
+    // Security: Do not reveal if user exists
+    return null; 
+  }
+
+  // Generate 6-digit OTP
+  const resetToken = crypto.randomInt(100000, 1000000).toString();
+  
+  // Hash token
+  const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+  
+  user.resetPasswordToken = hashedToken;
+  user.resetPasswordExpires = Date.now() + 15 * 60 * 1000; // 15 mins
+  
+  await user.save({ validateBeforeSave: false });
+
+  const sendEmail = require('./../../utils/email');
+  
+  // Safely grab user phone without crashing
+  const phoneText = user.phone ? `\nPhone: ${user.phone}` : '';
+  const message = `You requested a password reset.\nYour OTP is: ${resetToken}\nThis OTP is valid for 15 minutes.${phoneText}\nIf you didn't request this, please ignore this email.`;
+  
+  try {
+    await sendEmail({
+      email: user.email,
+      subject: 'Your Password Reset OTP (Valid for 15 min)',
+      message,
+    });
+  } catch (err) {
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save({ validateBeforeSave: false });
+    throw new AppError('There was an error sending the email. Try again later!', 500);
+  }
+  
+  return resetToken;
+};
+
+// 8) Reset Password
+const resetPassword = async (token, newPassword) => {
+  // Hash incoming token to compare with DB
+  const hashedToken = crypto.createHash('sha256').update(token.toString()).digest('hex');
+
+  const user = await User.findOne({
+    resetPasswordToken: hashedToken,
+    resetPasswordExpires: { $gt: Date.now() }
+  });
+
+  if (!user) {
+    throw new AppError('Token is invalid or has expired', 400);
+  }
+
+  // Hash password using bcrypt BEFORE saving
+  const hashedPassword = await bcrypt.hash(newPassword, 12);
+  
+  // Use explicit $set to ensure mongo updates strictly, and $inc to invalidate all active JWTs for immediate session shutdown!
+  await User.findByIdAndUpdate(
+    user._id,
+    {
+      $set: { password: hashedPassword },
+      $inc: { tokenVersion: 1 },
+      $unset: {
+        resetPasswordToken: 1,
+        resetPasswordExpires: 1
+      }
+    },
+    { new: true }
+  );
+
+  return user;
+};
+
 module.exports = {
   registerUser,
   loginUser,
   refreshTokens,
   logoutUser,
   createFirstAdmin,
-  signTokens
+  signTokens,
+  forgotPassword,
+  resetPassword
 };

@@ -91,6 +91,7 @@ exports.createOrder = async (req, res, next) => {
     const orderData = {
         user: req.user ? req.user._id : null,
         shippingAddress,
+
         items: cartItems,
         total: finalTotal,
         paymentMethod: paymentMethod || 'cash'
