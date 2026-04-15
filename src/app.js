@@ -19,12 +19,23 @@ connectDB();
 
 // Middlewares
 app.use(helmet());
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'https://made-in-egypt-a3pd.vercel.app',
+];
+
 app.use(
   cors({
-    origin: process.env.CLIENT_URL
-      ? process.env.CLIENT_URL
-      : ['http://localhost:5174', 'http://localhost:5173'],
-    credentials: true, // Allow cookies to be sent
+    origin: function (origin, callback) {
+      // يسمح بالطلبات من السيرفر نفسه أو من origins المسموح بها
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS: ' + origin));
+      }
+    },
+    credentials: true,
   })
 );
 app.use(express.json());
