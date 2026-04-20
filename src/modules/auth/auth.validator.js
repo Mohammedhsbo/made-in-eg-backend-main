@@ -28,6 +28,19 @@ const resetPasswordSchema = z.object({
   }),
 });
 
+const verifyEmailSchema = z.object({
+  body: z.object({
+    email: z.string().email('Invalid email format'),
+    otp: z.string().length(6, 'Verification code must be 6 digits'),
+  }),
+});
+
+const resendVerificationSchema = z.object({
+  body: z.object({
+    email: z.string().email('Invalid email format'),
+  }),
+});
+
 const validate = (schema) => (req, res, next) => {
   try {
     schema.parse({
@@ -50,4 +63,6 @@ module.exports = {
   loginSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
+  verifyEmailSchema,
+  resendVerificationSchema,
 };

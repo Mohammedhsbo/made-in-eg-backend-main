@@ -35,6 +35,18 @@ router.post(
   authController.verifyOtp
 );
 
+router.post(
+  '/verify-email',
+  authValidator.validate(authValidator.verifyEmailSchema),
+  authController.verifyEmail
+);
+
+router.post(
+  '/resend-verification-email',
+  authValidator.validate(authValidator.resendVerificationSchema),
+  authController.resendVerificationEmail
+);
+
 router.post('/refresh', authController.refresh);
 
 // Hidden route to bootstrap first admin (Requires Secret Header)

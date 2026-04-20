@@ -29,11 +29,36 @@ const registerUser = async (userData) => {
     password: userData.password,
   });
 
-  // Remove password from output
-  newUser.password = undefined;
+  // Generate 6-digit OTP
+  const otp = crypto.randomInt(100000, 1000000).toString();
+  const hashedToken = crypto.createHash('sha256').update(otp).digest('hex');
 
-  const tokens = signTokens(newUser);
-  return { user: newUser, tokens };
+  newUser.verifyEmailToken = hashedToken;
+  newUser.verifyEmailExpires = Date.now() + 15 * 60 * 1000; // 15 mins
+  await newUser.save({ validateBeforeSave: false });
+
+  // Send OTP via email
+  const sendEmail = require('./../../utils/email');
+  const message = `Welcome to Made in Egypt! Your email verification code is: ${otp}\nThis code is valid for 15 minutes.`;
+
+  try {
+    await sendEmail({
+      email: newUser.email,
+      subject: 'Verify your email address',
+      message,
+    });
+  } catch (err) {
+    // If email fails, we still created the user, but they'll need to resend.
+    // Or we could delete user? Usually better to keep and let them resend.
+    console.error('Email sending failed during registration:', err);
+  }
+
+  // Remove sensitive info
+  newUser.password = undefined;
+  newUser.verifyEmailToken = undefined;
+
+  // We do NOT return tokens here because user is not verified yet
+  return { user: newUser, tokens: null };
 };
 
 // 3) Login user
@@ -43,6 +68,11 @@ const loginUser = async (email, password) => {
 
   if (!user || !(await user.correctPassword(password, user.password))) {
     throw new AppError('Incorrect email or password', 401);
+  }
+
+  // Check if email is verified
+  if (!user.isVerified) {
+    throw new AppError('Your email address is not verified. Please verify your email to log in.', 403);
   }
 
   // Remove password from output
@@ -180,6 +210,58 @@ const resetPassword = async (token, newPassword) => {
   return user;
 };
 
+// 9) Verify Email
+const verifyEmail = async (email, otp) => {
+  const hashedToken = crypto.createHash('sha256').update(otp.toString()).digest('hex');
+
+  const user = await User.findOne({
+    email,
+    verifyEmailToken: hashedToken,
+    verifyEmailExpires: { $gt: Date.now() }
+  });
+
+  if (!user) {
+    throw new AppError('Invalid or expired verification code', 400);
+  }
+
+  user.isVerified = true;
+  user.verifyEmailToken = undefined;
+  user.verifyEmailExpires = undefined;
+  await user.save({ validateBeforeSave: false });
+
+  const tokens = signTokens(user);
+  return { user, tokens };
+};
+
+// 10) Resend Verification Email
+const resendVerificationEmail = async (email) => {
+  const user = await User.findOne({ email });
+
+  if (!user) {
+    throw new AppError('No user found with that email address', 404);
+  }
+
+  if (user.isVerified) {
+    throw new AppError('This account is already verified', 400);
+  }
+
+  const otp = crypto.randomInt(100000, 1000000).toString();
+  const hashedToken = crypto.createHash('sha256').update(otp).digest('hex');
+
+  user.verifyEmailToken = hashedToken;
+  user.verifyEmailExpires = Date.now() + 15 * 60 * 1000;
+  await user.save({ validateBeforeSave: false });
+
+  const sendEmail = require('./../../utils/email');
+  const message = `Your new email verification code is: ${otp}\nThis code is valid for 15 minutes.`;
+
+  await sendEmail({
+    email: user.email,
+    subject: 'Resend: Verify your email address',
+    message,
+  });
+};
+
 module.exports = {
   registerUser,
   loginUser,
@@ -188,5 +270,7 @@ module.exports = {
   createFirstAdmin,
   signTokens,
   forgotPassword,
-  resetPassword
+  resetPassword,
+  verifyEmail,
+  resendVerificationEmail,
 };

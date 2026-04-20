@@ -28,6 +28,15 @@ const sendTokenResponse = (user, tokens, statusCode, res) => {
 exports.register = async (req, res, next) => {
   try {
     const { user, tokens } = await authService.registerUser(req.body);
+    
+    if (!tokens) {
+      return res.status(201).json({
+        status: 'success',
+        message: 'Account created successfully. Please verify your email before logging in.',
+        data: { user }
+      });
+    }
+    
     sendTokenResponse(user, tokens, 201, res);
   } catch (err) {
     next(err);
@@ -98,6 +107,32 @@ exports.createAdmin = async (req, res, next) => {
     next(err);
   }
 };
+
+exports.verifyEmail = async (req, res, next) => {
+  try {
+    const { email, otp } = req.body;
+    const { user, tokens } = await authService.verifyEmail(email, otp);
+    
+    sendTokenResponse(user, tokens, 200, res);
+  } catch(err) {
+    next(err);
+  }
+};
+
+exports.resendVerificationEmail = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    await authService.resendVerificationEmail(email);
+    
+    res.status(200).json({
+      status: 'success',
+      message: 'Verification code sent to your email.'
+    });
+  } catch(err) {
+    next(err);
+  }
+};
+
 exports.forgotPassword = async (req, res, next) => {
   try {
     const { email } = req.body;
@@ -162,6 +197,7 @@ exports.resetPassword = async (req, res, next) => {
     next(err);
   }
 };
+
 exports.updatePassword = async (req, res, next) => {
   try {
     const { password } = req.body;
