@@ -126,7 +126,9 @@ exports.createOrder = async (req, res, next) => {
 // Get current user's orders
 exports.getMyOrders = async (req, res, next) => {
   try {
-    const orders = await Order.find({ user: req.user._id }).sort('-createdAt');
+    const orders = await Order.find({ user: req.user._id })
+      .populate('items.product', 'imageCover images')
+      .sort('-createdAt');
 
     res.status(200).json({
       status: 'success',
@@ -176,7 +178,8 @@ exports.getAllOrders = async (req, res, next) => {
 // Get single order (Admin or Owner)
 exports.getOrder = async (req, res, next) => {
     try {
-        const order = await Order.findById(req.params.id);
+        const order = await Order.findById(req.params.id)
+            .populate('items.product', 'imageCover images');
 
         if (!order) {
             return next(new AppError('No order found with that ID', 404));
