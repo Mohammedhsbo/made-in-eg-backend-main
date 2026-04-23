@@ -21,14 +21,13 @@ connectDB();
 app.use(helmet());
 const allowedOrigins = [
   'http://localhost:5173',
-  'http://localhost:5174',
-  'https://made-in-egypt-m81c.vercel.app',
+  'http://localhost:5174'
 ];
 
 app.use(
   cors({
     origin: function (origin, callback) {
-      // يسمح بالطلبات من السيرفر نفسه أو من origins المسموح بها
+      
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
