@@ -22,7 +22,7 @@ app.use(helmet());
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:5174',
-  'https://made-in-egypt-one.vercel.app'
+  "https://made-in-egypt-3krd.vercel.app"
 ];
 
 app.use(
